@@ -1,0 +1,292 @@
+-- Таблица клиентов мастерской
+CREATE TABLE Clients (
+    -- Уникальный идентификатор клиента
+    id              SERIAL,
+    -- Фамилия клиента
+    last_name       TEXT            NOT NULL,
+    -- Имя клиента
+    first_name      TEXT            NOT NULL,
+    -- Отчество клиента
+    patronymic      TEXT            DEFAULT NULL,
+    -- Контактный телефон
+    phone_number    CHAR(15)        NOT NULL,
+    
+
+    -- Первичный ключ таблицы
+    CONSTRAINT pk_clients                   PRIMARY KEY (id),
+    -- Уникальность телефонного номера
+    CONSTRAINT uq_clients_phone             UNIQUE (phone_number)
+);
+
+-- Таблица сотрудников мастерской
+CREATE TABLE Employees (
+    -- Уникальный идентификатор сотрудника
+    id              SERIAL,
+    -- Фамилия сотрудника
+    last_name       TEXT            NOT NULL,
+    -- Имя сотрудника
+    first_name      TEXT            NOT NULL,
+    -- Отчество сотрудника
+    patronymic      TEXT            DEFAULT NULL,
+    -- Должность в мастерской
+    position        TEXT            NOT NULL,
+    -- Контактный телефон
+    phone_number    CHAR(15)        NOT NULL,
+    
+
+    -- Первичный ключ таблицы
+    CONSTRAINT pk_employees                 PRIMARY KEY (id),
+    -- Уникальность телефонного номера
+    CONSTRAINT uq_employees_phone           UNIQUE (phone_number)
+);
+
+-- Справочник услуг мастерской
+CREATE TABLE Services (
+    -- Уникальный идентификатор услуги
+    id              SERIAL,
+    -- Наименование услуги
+    service_name    TEXT            NOT NULL,
+    -- Стоимость услуги
+    price           DECIMAL(10,2)   NOT NULL,
+    
+
+    -- Первичный ключ таблицы
+    CONSTRAINT pk_services                  PRIMARY KEY (id),
+    -- Проверка неотрицательной цены
+    CONSTRAINT chk_services_price           CHECK (price >= 0),
+    -- Уникальность наименования услуги
+    CONSTRAINT uq_services_name             UNIQUE (service_name)
+);
+
+-- Таблица автомобилей клиентов
+CREATE TABLE Cars (
+    -- Уникальный идентификатор автомобиля
+    id              SERIAL,
+    -- Ссылка на владельца автомобиля
+    client_id       INTEGER         NOT NULL,
+    -- Марка автомобиля
+    brand           TEXT,
+    -- VIN-код (17 символов)
+    vin             CHAR(17)        NOT NULL,
+    -- Цвет автомобиля
+    color           TEXT,
+    
+
+    -- Первичный ключ таблицы
+    CONSTRAINT pk_cars                      PRIMARY KEY (id),
+    -- Внешний ключ на таблицу клиентов
+    CONSTRAINT fk_cars_client               FOREIGN KEY (client_id) REFERENCES Clients(id),
+    -- Уникальность VIN-кода
+    CONSTRAINT uq_cars_vin                  UNIQUE (vin)
+);
+
+-- Таблица заказов на ремонт
+CREATE TABLE Orders (
+    -- Уникальный идентификатор заказа
+    id                      SERIAL,
+    -- Ссылка на автомобиль
+    car_id                  INTEGER         NOT NULL,
+    -- Ссылка на сотрудника, создавшего заказ
+    employee_id_created     INTEGER         NOT NULL,
+    -- Дата и время создания заказа
+    date_created            TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Текущий статус заказа
+    order_status            TEXT            NOT NULL DEFAULT 'В работе',
+    -- Общая стоимость заказа
+    total_cost              DECIMAL(10,2)   NOT NULL DEFAULT 0,
+    
+
+    -- Первичный ключ таблицы
+    CONSTRAINT pk_orders                     PRIMARY KEY (id),
+    -- Внешний ключ на таблицу автомобилей
+    CONSTRAINT fk_orders_car                 FOREIGN KEY (car_id) REFERENCES Cars(id) ON DELETE CASCADE,
+    -- Внешний ключ на таблицу сотрудников
+    CONSTRAINT fk_orders_employee_created    FOREIGN KEY (employee_id_created) REFERENCES Employees(id) ON DELETE SET NULL,
+
+    -- Проверка неотрицательной стоимости
+    CONSTRAINT chk_orders_total_cost         CHECK (total_cost >= 0),
+    -- Проверка допустимых значений статуса
+    CONSTRAINT chk_orders_status             CHECK (order_status IN ('В работе', 'Готов'))
+);
+
+-- Таблица связи заказов и услуг (состав заказа)
+CREATE TABLE Order_Services (
+    -- Уникальный идентификатор связи
+    id                      SERIAL,
+    -- Ссылка на заказ
+    order_id                INTEGER         NOT NULL,
+    -- Ссылка на услугу
+    service_id              INTEGER         NOT NULL,
+    -- Ссылка на назначенного сотрудника
+    employee_id_assigned    INTEGER         NOT NULL,
+    -- Цена услуги в данном заказе
+    price                   DECIMAL(10,2)   NOT NULL,
+    -- Статус выполнения услуги
+    service_status          TEXT            NOT NULL DEFAULT 'Назначена',
+    
+
+    -- Первичный ключ таблицы
+    CONSTRAINT pk_order_services             PRIMARY KEY (id),
+    -- Внешний ключ на таблицу заказов (удаление каскадом)
+    CONSTRAINT fk_order_services_order       FOREIGN KEY (order_id) REFERENCES Orders(id) ON DELETE CASCADE,
+    -- Внешний ключ на таблицу услуг
+    CONSTRAINT fk_order_services_service     FOREIGN KEY (service_id) REFERENCES Services(id),
+    -- Внешний ключ на таблицу сотрудников
+    CONSTRAINT fk_order_services_employee    FOREIGN KEY (employee_id_assigned) REFERENCES Employees(id)  ON DELETE SET NULL,
+
+    -- Проверка неотрицательной цены
+    CONSTRAINT chk_order_services_price      CHECK (price >= 0),
+    -- Проверка допустимых значений статуса
+    CONSTRAINT chk_order_services_status     CHECK (service_status IN ('Назначена', 'Выполнена')),
+
+    -- Уникальность пары заказ-услуга (исключение дублирования)
+    CONSTRAINT uq_order_service_unique       UNIQUE (order_id, service_id)
+);
+
+
+
+
+
+-- Индекс для поиска всех услуг по заказу
+CREATE INDEX idx_order_services_order_id ON Order_Services (order_id);
+
+-- Индекс для определения загрузки сотрудников
+CREATE INDEX idx_order_services_employee_id ON Order_Services (employee_id_assigned);
+
+-- Индекс для фильтрации заказов по статусу
+CREATE INDEX idx_orders_status ON Orders (order_status);
+
+
+
+
+
+-- Проекция: Статус занятости сотрудников (занятые)
+CREATE VIEW Employee_Busy_View AS
+SELECT 
+    e.id,
+    e.last_name,
+    e.first_name,
+    e.position,
+    COUNT(os.id) as task_count
+FROM Employees e
+    INNER JOIN Order_Services os ON e.id = os.employee_id_assigned
+GROUP BY e.id, e.last_name, e.first_name, e.position
+HAVING COUNT(os.id) > 0;
+
+-- Проекция: Статус занятости сотрудников (не занятые)
+CREATE VIEW Employee_Free_View AS
+SELECT 
+    e.id,
+    e.last_name,
+    e.first_name,
+    e.position,
+    0 as task_count
+FROM Employees e
+    LEFT JOIN Order_Services os ON e.id = os.employee_id_assigned
+GROUP BY e.id, e.last_name, e.first_name, e.position
+HAVING COUNT(os.id) = 0;
+
+-- Проекция: Заказы в работе
+CREATE VIEW In_Progress_Orders_View AS
+SELECT *
+FROM Orders
+WHERE order_status = 'В работе';
+
+-- Проекция: Готовые заказы
+CREATE VIEW Completed_Orders_View AS
+SELECT *
+FROM Orders
+WHERE order_status = 'Готов';
+
+-- Проекция: Отчет для оплаты заказа
+CREATE VIEW Order_Payment_Report_View AS
+SELECT 
+    o.date_created            as order_date,
+    c.last_name               as client_last_name,
+    c.first_name              as client_first_name,
+    c.phone_number            as client_phone,
+    car.brand                 as car_brand,
+    car.color                 as car_color,
+    car.vin                   as car_vin,
+    s.service_name            as service_name,
+    os.price                  as service_price,
+    o.total_cost              as order_total
+FROM Orders o
+    INNER JOIN Cars 			car     ON o.car_id = car.id
+    INNER JOIN Clients			c     	ON car.client_id = c.id
+    INNER JOIN Order_Services	os 		ON o.id = os.order_id
+    INNER JOIN Services			s		ON os.service_id = s.id
+ORDER BY os.price;
+
+
+
+
+
+-- Триггер для автоматического пересчета общей стоимости заказа
+CREATE OR REPLACE FUNCTION update_order_total_cost()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+        UPDATE Orders 
+        SET total_cost = (
+            SELECT COALESCE(SUM(price), 0)
+            FROM Order_Services 
+            WHERE order_id = NEW.order_id
+        )
+        WHERE id = NEW.order_id;
+    END IF;
+    
+    IF TG_OP = 'DELETE' THEN
+        UPDATE Orders 
+        SET total_cost = (
+            SELECT COALESCE(SUM(price), 0)
+            FROM Order_Services 
+            WHERE order_id = OLD.order_id
+        )
+        WHERE id = OLD.order_id;
+    END IF;
+    
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Триггер на вставку, обновление и удаление в Order_Services
+CREATE TRIGGER trigger_update_order_total
+    AFTER INSERT OR UPDATE OR DELETE ON Order_Services
+    FOR EACH ROW
+    EXECUTE FUNCTION update_order_total_cost();
+
+
+
+
+
+
+
+
+
+
+-- Удаление триггеров
+DROP TRIGGER IF EXISTS trigger_update_order_total ON Order_Services;
+
+-- Удаление функций
+DROP FUNCTION IF EXISTS update_order_total_cost();
+
+-- Удаление представлений
+DROP VIEW IF EXISTS Order_Payment_Report_View;
+DROP VIEW IF EXISTS Completed_Orders_View;
+DROP VIEW IF EXISTS In_Progress_Orders_View;
+DROP VIEW IF EXISTS Employee_Free_View;
+DROP VIEW IF EXISTS Employee_Busy_View;
+
+-- Удаление индексов
+DROP INDEX IF EXISTS idx_orders_status;
+DROP INDEX IF EXISTS idx_order_services_employee_id;
+DROP INDEX IF EXISTS idx_order_services_order_id;
+
+-- Удаление таблиц
+DROP TABLE IF EXISTS Order_Services;
+DROP TABLE IF EXISTS Orders;
+DROP TABLE IF EXISTS Cars;
+DROP TABLE IF EXISTS Services;
+DROP TABLE IF EXISTS Clients;
+DROP TABLE IF EXISTS Employees;
