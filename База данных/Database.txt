@@ -88,8 +88,6 @@ CREATE TABLE Orders (
     car_id                  INTEGER         NOT NULL,
     -- Ссылка на сотрудника, создавшего заказ
     employee_id_created     INTEGER         NOT NULL,
-    -- Дата и время создания заказа
-    date_created            TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- Текущий статус заказа
     order_status            TEXT            NOT NULL DEFAULT 'В работе',
     -- Общая стоимость заказа
@@ -255,8 +253,6 @@ CREATE TRIGGER trigger_update_order_total
     AFTER INSERT OR UPDATE OR DELETE ON Order_Services
     FOR EACH ROW
     EXECUTE FUNCTION update_order_total_cost();
-
-
 
 
 
