@@ -388,4 +388,17 @@ public class DataBase {
         
         return isForeignKey;
     }
+
+    public static List<Map<String, Object>> executeQuery(String sql) throws SQLException {
+        try (Statement statement = _connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+            return _resultSetToList(rs);
+        }
+    }
+
+    public static boolean executeUpdate(String sql) throws SQLException {
+        try (Statement statement = _connection.createStatement()) {
+            return statement.execute(sql);
+        }
+    }
 }
